@@ -1,3 +1,4 @@
+#include <cmath>
 #include <eigen3/Eigen/Eigen>
 #include <iostream>
 #include <opencv2/opencv.hpp>
@@ -26,6 +27,12 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle) {
   // Create the model matrix for rotating the triangle around the Z axis.
   // Then return it.
 
+  auto theta = rotation_angle * MY_PI / 180;
+  model << std::cos(theta), -std::sin(theta), 0, 0,  //
+      std::sin(theta), std::cos(theta), 0, 0,        //
+      0, 0, 1, 0,                                    //
+      0, 0, 0, 1;                                    //
+
   return model;
 }
 
@@ -39,6 +46,35 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
   // Create the projection matrix for the given parameters.
   // Then return it.
 
+  Eigen::Matrix4f M_ortho_scale, M_ortho_translate, M_ortho, M_persp_ortho, M_mirror;
+  float eye_angel = eye_fov * MY_PI / 180 / 2;
+  float height = 2 * zNear * std::tan(eye_angel);
+  float width = height * aspect_ratio;
+
+  M_ortho_scale << 2 / width, 0, 0, 0,  //
+      0, 2 / height, 0, 0,              //
+      0, 0, 2 / (zFar - zNear), 0,      //
+      0, 0, 0, 1;                       //
+
+  M_ortho_translate << 1, 0, 0, 0,   //
+      0, 1, 0, 0,                    //
+      0, 0, 1, -(zNear + zFar) / 2,  //
+      0, 0, 0, 1;                    //
+
+  M_ortho = M_ortho_scale * M_ortho_translate;
+
+  M_mirror << 1, 0, 0, 0,  //
+      0, 1, 0, 0,          //
+      0, 0, -1, 0,         //
+      0, 0, 0, 1;          //
+
+  M_persp_ortho << zNear, 0, 0, 0,        //
+      0, zNear, 0, 0,                     //
+      0, 0, zNear + zFar, -zNear * zFar,  //
+      0, 0, 1, 0;                         //
+
+  projection = M_ortho * M_persp_ortho * M_mirror;
+
   return projection;
 }
 
@@ -49,7 +85,7 @@ int main(int argc, const char **argv) {
 
   if (argc >= 3) {
     command_line = true;
-    angle = std::stof(argv[2]); // -r by default
+    angle = std::stof(argv[2]);  // -r by default
     if (argc == 4) {
       filename = std::string(argv[3]);
     } else
